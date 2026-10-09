@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>Where Does It Belong? — Drag &amp; Drop Game</title>
+<style>
+  /* ============================================================
+     THEME / RESET
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    overscroll-behavior: none;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #e9efff;
+    background: radial-gradient(120% 90% at 15% 0%, #1d2a5e 0%, #101736 45%, #070a18 100%);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
+  /* ============================================================
+     HEADER
+     ============================================================ */
+  header {
+    flex: none;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px 12px;
+    padding: clamp(8px, 1.6vh, 16px) clamp(10px, 2vw, 24px) 4px;
+  }
+
+  h1 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: clamp(15px, 2.2vw, 23px);
+    font-weight: 800;
+    letter-spacing: .2px;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, .5);
+  }
+
+  #counter {
+    font-size: .72em;
+    font-weight: 800;
+    color: #9fd0ff;
+    background: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 999px;
+    padding: 3px 11px;
+  }
+
+  .icon-btn {
+    width: clamp(36px, 4.4vw, 46px);
+    height: clamp(36px, 4.4vw, 46px);
+    display: grid;
+    place-items: center;
+    font-size: clamp(16px, 2vw, 20px);
+    color: inherit;
+    cursor: pointer;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .15);
+    background: rgba(255, 255, 255, .08);
+    transition: background .2s ease, transform .15s ease;
+  }
+  .icon-btn:hover  { background: rgba(255, 255, 255, .18); }
+  .icon-btn:active { transform: scale(.92); }
+
+  .progress {
+    grid-column: 1 / -1;
+    height: 6px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, .09);
+    overflow: hidden;
+  }
+  .progress i {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #4ade80, #22d3ee);
+    transition: width .45s cubic-bezier(.2, .8, .3, 1);
+  }
+
+  /* ============================================================
+     LAYOUT
+     ============================================================ */
+  main {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.2vh, 14px);
+    padding: 0 clamp(10px, 2vw, 24px) clamp(8px, 1.6vh, 18px);
+  }
+
+  /* ---------- DROP ZONES ---------- */
+  .zones {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: clamp(6px, 1.2vh, 14px);
+  }
+
+  .zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: clamp(12px, 2vw, 20px);
+    border: 2px solid rgba(255, 255, 255, .14);
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .15);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+
+  /* dark veil so text stays readable over any background image */
+  .zone::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg,
+      rgba(5, 8, 22, .58) 0%,
+      rgba(5, 8, 22, .16) 45%,
+      rgba(5, 8, 22, .55) 100%);
+  }
+
+  .zone-head {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: clamp(6px, 1.2vh, 12px) clamp(8px, 1.4vw, 16px) 2px;
+    font-size: clamp(11px, 1.5vw, 17px);
+    font-weight: 800;
+    letter-spacing: .3px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .7);
+  }
+  .zone-head .zi { font-size: 1.35em; line-height: 1; }
+
+  .placed {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-end;
+    justify-content: center;
+    gap: clamp(4px, .8vw, 8px);
+    padding: clamp(6px, 1.2vh, 12px);
+    overflow: hidden;
+  }
+
+  .placed:empty::before {
+    content: "Drop here";
+    align-self: center;
+    margin: auto;
+    padding: 6px 14px;
+    font-size: clamp(10px, 1.3vw, 14px);
+    font-weight: 700;
+    color: rgba(255, 255, 255, .45);
+    border: 2px dashed rgba(255, 255, 255, .28);
+    border-radius: 12px;
+  }
+
+  .chip {
+    width: clamp(30px, 5.2vw, 52px);
+    height: clamp(30px, 5.2vw, 52px);
+    display: grid;
+    place-items: center;
+    font-size: clamp(15px, 2.6vw, 26px);
+    line-height: 1;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .94);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .38);
+    animation: chipIn .42s cubic-bezier(.2, 1.5, .5, 1) both;
+  }
+  .chip img { width: 80%; height: 80%; object-fit: contain; }
+
+  @keyframes chipIn {
+    from { transform: scale(0) rotate(-25deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg);  opacity: 1; }
+  }
+
+  /* zone states */
+  .zone.over {
+    border-color: #8fd0ff;
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 4px rgba(120, 190, 255, .35), 0 14px 34px rgba(0, 0, 0, .45);
+  }
+
+  .zone.accept { animation: acceptPulse .5s ease; }
+  @keyframes acceptPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(120, 255, 180, .75); }
+    45%  { box-shadow: 0 0 0 12px rgba(120, 255, 180, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(120, 255, 180, 0); }
+  }
+
+  .zone.shake { animation: zoneShake .45s cubic-bezier(.36, .07, .19, .97); }
+  @keyframes zoneShake {
+    10%, 90%      { transform: translateX(-3px); }
+    20%, 80%      { transform: translateX(5px); }
+    30%, 50%, 70% { transform: translateX(-8px); }
+    40%, 60%      { transform: translateX(8px); }
+  }
+
+  /* ---------- TRAY ---------- */
+  .tray-wrap { flex: none; }
+
+  .tray {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: flex-start;
+    gap: clamp(6px, 1vw, 12px);
+    padding: clamp(8px, 1.2vh, 14px);
+    max-height: 34vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-radius: clamp(14px, 2vw, 22px);
+    border: 1px solid rgba(255, 255, 255, .1);
+    background: rgba(255, 255, 255, .055);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---------- CARDS ---------- */
+  .card {
+    flex: 0 0 auto;
+    width: clamp(58px, 9.5vw, 96px);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px;
+    cursor: grab;
+    touch-action: pinch-zoom;
+    color: #111a33;
+    border-radius: clamp(10px, 1.6vw, 16px);
+    background: linear-gradient(170deg, #ffffff, #dfe7ff);
+    box-shadow: 0 6px 0 rgba(0, 0, 0, .28), 0 8px 20px rgba(0, 0, 0, .3);
+    transition: transform .18s ease, box-shadow .18s ease;
+    will-change: transform;
+  }
+
+  .card .card-emoji { font-size: clamp(22px, 3.6vw, 38px); line-height: 1; pointer-events: none; }
+  .card .card-name  {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: clamp(8px, .95vw, 11px);
+    font-weight: 800;
+    letter-spacing: .2px;
+    opacity: .62;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
+  .card img { width: 62%; height: 62%; object-fit: contain; pointer-events: none; }
+
+  .card.dragging {
+    z-index: 9999;
+    cursor: grabbing;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .5), 0 0 0 3px rgba(120, 180, 255, .75);
+  }
+
+  .card-placeholder {
+    flex: 0 0 auto;
+    border-radius: clamp(10px, 1.6vw, 16px);
+    border: 2px dashed rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .045);
+  }
+
+  /* ---------- WIN OVERLAY ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    background: rgba(5, 8, 20, .72);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    transition: opacity .35s ease;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+
+  .win-card {
+    width: 100%;
+    max-width: 420px;
+    padding: clamp(22px, 4vw, 40px) clamp(24px, 5vw, 52px);
+    text-align: center;
+    border-radius: 26px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    background: linear-gradient(160deg, #1e2a55, #131a38);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, .6);
+    transform: translateY(14px) scale(.96);
+    transition: transform .4s cubic-bezier(.2, 1.4, .4, 1);
+  }
+  .overlay.show .win-card { transform: none; }
+
+  .win-emoji { font-size: clamp(40px, 7vw, 64px); line-height: 1; }
+  .win-card h2 { margin: 10px 0 4px; font-size: clamp(20px, 3vw, 30px); }
+  .win-card p  { margin: 0 0 20px; color: #a9b8e0; font-size: clamp(13px, 1.6vw, 16px); }
+
+  .btn {
+    cursor: pointer;
+    border: 0;
+    padding: 13px 30px;
+    font-size: clamp(14px, 1.8vw, 17px);
+    font-weight: 800;
+    letter-spacing: .3px;
+    color: #04122b;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #7ee7ff, #35b6ff);
+    box-shadow: 0 8px 0 #1c6fb0, 0 14px 26px rgba(0, 0, 0, .4);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active {
+    transform: translateY(5px);
+    box-shadow: 0 3px 0 #1c6fb0, 0 8px 16px rgba(0, 0, 0, .4);
+  }
+
+  /* ---------- LANDSCAPE PHONES ---------- */
+  @media (orientation: landscape) and (max-height: 560px) {
+    .zones {
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: 1fr;
+    }
+    .tray { max-height: 26vh; }
+  }
+</style>
+</head>
+
+<body>
+
+  <header>
+    <h1>Where Does It Belong? <span id="counter">0 / 12</span></h1>
+    <button id="soundBtn" class="icon-btn" type="button" aria-label="Toggle sound">🔊</button>
+    <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+  </header>
+
+  <main>
+    <section id="zones" class="zones" aria-label="Drop zones"></section>
+    <section class="tray-wrap">
+      <div id="tray" class="tray" aria-label="Picture cards"></div>
+    </section>
+  </main>
+
+  <div id="overlay" class="overlay" role="dialog" aria-modal="true">
+    <div class="win-card">
+      <div class="win-emoji">🎉</div>
+      <h2>Great job!</h2>
+      <p>You sorted all <strong id="winTotal">12</strong> items.</p>
+      <button id="playAgain" class="btn" type="button">Play Again</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==========================================================
+     1. GAME DATA  —  EDIT HERE TO SWAP IN YOUR OWN ARTWORK
+     ----------------------------------------------------------
+     To use a real picture, set  image: "images/items/pencil.png"
+     (any URL or relative path works). When `image` is empty the
+     emoji is used as the placeholder.
+
+     For a zone background, set
+        image: "images/backgrounds/classroom.png"
+     Otherwise the gradient in `bg` is used.
+     ========================================================== */
+
+  const ZONES = [
+    { id: 'classroom',  name: 'Classroom',  emoji: '🏫', image: '/projects/peet-the-cat-rocking-in-my-school-shoes/assets/classroom.jpg',
+      bg: 'linear-gradient(150deg,#3f6ff0,#7b4df0 55%,#a34df0)' },
+
+    { id: 'library',    name: 'Library',    emoji: '📚', image: '/projects/peet-the-cat-rocking-in-my-school-shoes/assets/library.jpg',
+      bg: 'linear-gradient(150deg,#0f9b8e,#1c6fbf 60%,#2f4bd6)' },
+
+    { id: 'kitchen',    name: 'Lunchroom',    emoji: '🍽️', image: '/projects/peet-the-cat-rocking-in-my-school-shoes/assets/lunch.jpg',
+      bg: 'linear-gradient(150deg,#f0703f,#e0475f 55%,#b52a8a)' },
+
+    { id: 'playground', name: 'Playground', emoji: '🎠', image: '/projects/peet-the-cat-rocking-in-my-school-shoes/assets/playground.jpg',
+      bg: 'linear-gradient(150deg,#f6b93b,#ef7f2f 55%,#e04f5f)' }
+  ];
+
+  const ITEMS = [
+    /* ---- classroom ---- */
+    { id: 'pencil',   name: 'Pencil',   emoji: '✏️', zone: 'classroom',  image: '' },
+    { id: 'ruler',    name: 'Ruler',    emoji: '📐', zone: 'classroom',  image: '' },
+    { id: 'backpack', name: 'Backpack', emoji: '🎒', zone: 'classroom',  image: '' },
+
+    /* ---- library ---- */
+    { id: 'book',     name: 'Book',     emoji: '📖', zone: 'library',    image: '' },
+    { id: 'books',    name: 'Books',    emoji: '📚', zone: 'library',    image: '' },
+    { id: 'bookmark', name: 'Bookmark', emoji: '🔖', zone: 'library',    image: '' },
+
+    /* ---- kitchen ---- */
+    { id: 'pan',      name: 'Pan',      emoji: '🍳', zone: 'kitchen',    image: '' },
+    { id: 'spoon',    name: 'Spoon',    emoji: '🥄', zone: 'kitchen',    image: '' },
+    { id: 'salt',     name: 'Salt',     emoji: '🧂', zone: 'kitchen',    image: '' },
+    { id: 'fish',    name: 'Fish',    emoji: '🐟', zone: 'kitchen',    image: '' },
+    { id: 'milk',    name: 'Milk',    emoji: '🥛', zone: 'kitchen',    image: '' },
+
+    /* ---- playground ---- */
+    { id: 'ball',     name: 'Ball',     emoji: '⚽', zone: 'playground', image: '' },
+    { id: 'bike',     name: 'Bicycle',  emoji: '🚲', zone: 'playground', image: '' },
+    { id: 'scooter',  name: 'Scooter',  emoji: '🛴', zone: 'playground', image: '' },
+    { id: 'slide',    name: 'Slide',    emoji: '🛝  ', zone: 'playground', image: '' },
+  ];
+
+  /* ==========================================================
+     2. DOM REFS + STATE
+     ========================================================== */
+
+  const zonesEl   = document.getElementById('zones');
+  const trayEl    = document.getElementById('tray');
+  const counterEl = document.getElementById('counter');
+  const barEl     = document.getElementById('bar');
+  const overlay   = document.getElementById('overlay');
+  const winTotal  = document.getElementById('winTotal');
+  const playAgain = document.getElementById('playAgain');
+  const soundBtn  = document.getElementById('soundBtn');
+
+  const state = {
+    placed: 0,
+    total: ITEMS.length,
+    sound: true,
+    won: false
+  };
+
+  /* ==========================================================
+     3. SOUND  (generated with the Web Audio API — no files)
+     ========================================================== */
+
+  let audioCtx = null;
+
+  function getCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function beep(freq, dur, type, vol, delay) {
+    if (!state.sound) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+
+    const t0   = ctx.currentTime + (delay || 0);
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol || 0.14, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.04);
+  }
+
+  const sfx = {
+    pick:    function () { beep(520, 0.06, 'sine', 0.05); },
+    correct: function () { beep(660, 0.10, 'triangle', 0.14); beep(990, 0.16, 'triangle', 0.12, 0.08); },
+    wrong:   function () { beep(200, 0.14, 'square', 0.06);  beep(150, 0.20, 'square', 0.06, 0.10); },
+    win:     function () { [523, 659, 784, 1047].forEach(function (f, i) { beep(f, 0.30, 'triangle', 0.12, i * 0.12); }); }
+  };
+
+  /* ==========================================================
+     4. HELPERS
+     ========================================================== */
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  /* Which .zone (if any) sits under the given screen point,
+     ignoring the card that is currently being dragged. */
+  function zoneUnder(x, y, card) {
+    let list;
+    if (document.elementsFromPoint) {
+      list = document.elementsFromPoint(x, y);
+    } else {
+      const one = document.elementFromPoint(x, y);
+      list = one ? [one] : [];
+    }
+    for (let i = 0; i < list.length; i++) {
+      const el = list[i];
+      if (!el || el === card || card.contains(el)) continue;
+      const z = el.closest ? el.closest('.zone') : null;
+      if (z) return z;
+    }
+    return null;
+  }
+
+  /* ==========================================================
+     5. BUILD THE BOARD
+     ========================================================== */
+
+  function buildZones() {
+    zonesEl.innerHTML = '';
+
+    ZONES.forEach(function (z) {
+      const el = document.createElement('div');
+      el.className = 'zone';
+      el.dataset.zone = z.id;
+
+      if (z.image) {
+        el.style.backgroundImage    = 'url("' + z.image + '")';
+        el.style.backgroundSize     = 'cover';
+        el.style.backgroundPosition = 'center';
+      } else {
+        el.style.background = z.bg;
+      }
+
+      el.innerHTML =
+        '<div class="zone-head">' +
+          '<span class="zi">' + z.emoji + '</span>' +
+          '<span class="zn">' + z.name + '</span>' +
+        '</div>' +
+        '<div class="placed"></div>';
+
+      zonesEl.appendChild(el);
+    });
+  }
+
+  function buildTray() {
+    trayEl.innerHTML = '';
+
+    shuffle(ITEMS.slice()).forEach(function (it) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.item  = it.id;
+      card.dataset.zone  = it.zone;
+      card.dataset.emoji = it.emoji;
+
+      if (it.image) {
+        card.innerHTML = '<img src="' + it.image + '" alt="' + it.name + '" draggable="false">';
+      } else {
+        card.innerHTML =
+          '<span class="card-emoji">' + it.emoji + '</span>' +
+          '<span class="card-name">'  + it.name  + '</span>';
+      }
+
+      attachDrag(card);
+      trayEl.appendChild(card);
+    });
+  }
+
+  /* ==========================================================
+     6. DRAG & DROP
+     ----------------------------------------------------------
+     The card is kept in the tray (so we never re-parent it while
+     a pointer capture is active) but switched to `position:fixed`.
+     A same-sized placeholder holds its slot so the tray doesn't
+     reflow. Fixed elements escape ancestor `overflow` clipping,
+     so the card can fly anywhere on screen.
+     ========================================================== */
+
+  function attachDrag(card) {
+    let drag = null;
+
+    card.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+    card.addEventListener('pointerdown', function (e) {
+      if (state.won || drag) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+
+      const r = card.getBoundingClientRect();
+
+      /* placeholder keeps the tray layout stable */
+      const ph = document.createElement('div');
+      ph.className = 'card-placeholder';
+      ph.style.width  = r.width  + 'px';
+      ph.style.height = r.height + 'px';
+      card.parentNode.insertBefore(ph, card);
+
+      /* lift the card out of the flow, pinned to the viewport */
+      card.classList.add('dragging');
+      card.style.position   = 'fixed';
+      card.style.left       = r.left + 'px';
+      card.style.top        = r.top  + 'px';
+      card.style.width      = r.width  + 'px';
+      card.style.height     = r.height + 'px';
+      card.style.margin     = '0';
+      card.style.zIndex     = '9999';
+      card.style.transition = 'none';
+      card.style.transform  = 'translate3d(0,0,0) scale(1.08)';
+
+      drag = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        lastX: e.clientX,
+        lastY: e.clientY,
+        cx0: r.left + r.width  / 2,   /* original centre */
+        cy0: r.top  + r.height / 2,
+        ph: ph,
+        hover: null
+      };
+
+      try { card.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+
+      card.addEventListener('pointermove', onMove);
+      card.addEventListener('pointerup', onUp);
+      card.addEventListener('pointercancel', onUp);
+
+      sfx.pick();
+    });
+
+    /* ---------------- move ---------------- */
+    function onMove(e) {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      e.preventDefault();
+
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      drag.lastX = e.clientX;
+      drag.lastY = e.clientY;
+
+      const rot = Math.max(-10, Math.min(10, dx * 0.06));
+      card.style.transform =
+        'translate3d(' + dx + 'px,' + dy + 'px,0) scale(1.08) rotate(' + rot + 'deg)';
+
+      setHover(zoneUnder(e.clientX, e.clientY, card));
+    }
+
+    function setHover(zoneEl) {
+      if (!drag || drag.hover === zoneEl) return;
+      if (drag.hover) drag.hover.classList.remove('over');
+      drag.hover = zoneEl;
+      if (zoneEl) zoneEl.classList.add('over');
+    }
+
+    /* ---------------- release ---------------- */
+    function onUp(e) {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+
+      card.removeEventListener('pointermove', onMove);
+      card.removeEventListener('pointerup', onUp);
+      card.removeEventListener('pointercancel', onUp);
+
+      const d = drag;
+      drag = null;
+
+      if (d.hover) d.hover.classList.remove('over');
+      card.classList.remove('dragging');
+
+      if (e.type === 'pointercancel') {
+        snapBack(card, d);
+        return;
+      }
+
+      const px = (d.lastX != null) ? d.lastX : e.clientX;
+      const py = (d.lastY != null) ? d.lastY : e.clientY;
+
+      const zoneEl    = zoneUnder(px, py, card);
+      const isCorrect = zoneEl && zoneEl.dataset.zone === card.dataset.zone;
+
+      if (isCorrect) {
+        dropCorrect(card, zoneEl, d);
+      } else if (zoneEl) {
+        /* wrong zone → shake it and snap the card home */
+        zoneEl.classList.add('shake');
+        window.setTimeout(function () { zoneEl.classList.remove('shake'); }, 460);
+        sfx.wrong();
+        snapBack(card, d);
+      } else {
+        /* dropped in empty space → just snap home */
+        snapBack(card, d);
+      }
+    }
+  }
+
+  /* ==========================================================
+     7. RESULT ANIMATIONS
+     ========================================================== */
+
+  function snapBack(card, d) {
+    card.style.transition = 'transform .38s cubic-bezier(.34,1.35,.5,1)';
+
+    requestAnimationFrame(function () {
+      card.style.transform = 'translate3d(0,0,0) scale(1)';
+    });
+
+    let done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+
+      /* put it back in the flow, then drop the placeholder */
+      card.style.position   = '';
+      card.style.left       = '';
+      card.style.top        = '';
+      card.style.width      = '';
+      card.style.height     = '';
+      card.style.margin     = '';
+      card.style.zIndex     = '';
+      card.style.transition = '';
+      card.style.transform  = '';
+      card.style.opacity    = '';
+
+      if (d.ph && d.ph.parentNode) d.ph.remove();
+    }
+
+    card.addEventListener('transitionend', finish, { once: true });
+    window.setTimeout(finish, 500);
+  }
+
+  function dropCorrect(card, zoneEl, d) {
+    sfx.correct();
+
+    zoneEl.classList.add('accept');
+    window.setTimeout(function () { zoneEl.classList.remove('accept'); }, 520);
+
+    /* fly the card into the zone's chip area */
+    const slot = zoneEl.querySelector('.placed');
+    const tr   = slot.getBoundingClientRect();
+
+    const tx = (tr.left + tr.width  / 2) - d.cx0;
+    const ty = (tr.top  + tr.height / 2) - d.cy0;
+
+    card.style.transition = 'transform .40s cubic-bezier(.4,0,.55,1), opacity .40s ease-in';
+
+    requestAnimationFrame(function () {
+      card.style.transform = 'translate3d(' + tx + 'px,' + ty + 'px,0) scale(.35) rotate(0deg)';
+      card.style.opacity   = '0';
+    });
+
+    /* add the chip once the card has (mostly) landed */
+    window.setTimeout(function () {
+      addChip(zoneEl, card);
+
+      if (d.ph && d.ph.parentNode) d.ph.remove();
+      card.remove();
+
+      state.placed++;
+      updateHUD();
+
+      if (state.placed >= state.total) winGame();
+    }, 330);
+  }
+
+  function addChip(zoneEl, card) {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+
+    const img = card.querySelector('img');
+    if (img) {
+      const ci = document.createElement('img');
+      ci.src = img.getAttribute('src');
+      ci.alt = '';
+      chip.appendChild(ci);
+    } else {
+      chip.textContent = card.dataset.emoji || '❓';
+    }
+
+    zoneEl.querySelector('.placed').appendChild(chip);
+  }
+
+  /* ==========================================================
+     8. HUD / WIN / RESET
+     ========================================================== */
+
+  function updateHUD() {
+    counterEl.textContent = state.placed + ' / ' + state.total;
+    barEl.style.width = (state.placed / state.total * 100) + '%';
+  }
+
+  function winGame() {
+    state.won = true;
+    window.setTimeout(function () {
+      overlay.classList.add('show');
+      sfx.win();
+    }, 420);
+  }
+
+  function resetGame() {
+    state.placed = 0;
+    state.won    = false;
+
+    overlay.classList.remove('show');
+
+    buildZones();
+    buildTray();
+    updateHUD();
+  }
+
+  /* ==========================================================
+     9. WIRE UP + GO
+     ========================================================== */
+
+  playAgain.addEventListener('click', function () {
+    getCtx();          /* unlock audio on this gesture */
+    resetGame();
+  });
+
+  soundBtn.addEventListener('click', function () {
+    state.sound = !state.sound;
+    soundBtn.textContent = state.sound ? '🔊' : '🔇';
+    soundBtn.setAttribute('aria-label', state.sound ? 'Mute sound' : 'Unmute sound');
+    if (state.sound) { getCtx(); sfx.pick(); }
+  });
+
+  winTotal.textContent = String(state.total);
+
+  buildZones();
+  buildTray();
+  updateHUD();
+
+})();
+</script>
+</body>
+</html>
